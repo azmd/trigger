@@ -245,7 +245,7 @@ Default::
         'a10': ['SWITCH'],
         'arista': ['SWITCH'],
         'brocade': ['ROUTER', 'SWITCH'],
-        'cisco': ['ROUTER', 'SWITCH'],
+        'cisco': ['ROUTER', 'SWITCH', 'FIREWALL'],
         'citrix': ['SWITCH'],
         'dell': ['SWITCH'],
         'foundry': ['ROUTER', 'SWITCH'],
@@ -311,11 +311,26 @@ FALLBACK_TYPE
 
 .. versionadded:: 1.2
 
-When a vendor is not explicitly defined within :setting:`DEFAULT_TYPES`, fallback to this type.
+When a vendor is not explicitly defined within :setting:`DEFAULT_TYPES`,
+fallback to this type.
 
 Default::
 
     'ROUTER'
+
+.. setting:: FALLBACK_MANUFACTURER
+
+FALLBACK_MANUFACTURER
+~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 1.5.3
+
+When a manufacturer/vendor is not explicitly defined for a
+`~trigger.netdevices.NetDevice` object, fallback to to this value.
+
+Default::
+
+    'UNKNOWN'
 
 Twister settings
 ----------------
@@ -359,6 +374,46 @@ for telnet.
 Default::
 
     True
+
+.. setting:: SSH_PORT
+
+SSH_PORT
+~~~~~~~~
+
+.. versionadded:: 1.4.4
+
+Destination TCP port to use for SSH client connections.
+
+Default::
+
+    22
+
+.. setting:: SSH_AUTHENTICATION_ORDER
+
+SSH_AUTHENTICATION_ORDER
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. versionadded:: 1.5.1
+
+The preferred order in which SSH authentication methods are tried. Customize
+this if you wish to change the order of, or modify the supported methods.
+
+Default::
+
+    ['password', 'keyboard-interactive', 'publickey']
+
+.. setting:: TELNET_PORT
+
+TELNET_PORT
+~~~~~~~~~~~
+
+.. versionadded:: 1.4.4
+
+Destination TCP port to use for Telnet client connections.
+
+Default::
+
+    23
 
 .. setting:: TRIGGER_ENABLEPW
 
@@ -426,6 +481,38 @@ Cisco's IOS and can be treated accordingly for the sake of interaction.
 Default::
 
     ('a10', 'arista', 'brocade', 'cisco', 'dell', 'foundry')
+
+.. setting:: CONTINUE_PROMPTS
+
+CONTINUE_PROMPTS
+~~~~~~~~~~~~~~~~
+
+A list of strings representing continue prompts sent by devices that indicate
+the device is awaiting user confirmation when interacting with the device. If a
+continue prompt is detected, Trigger will temporarily set this value to the
+prompt and send along the next command (for example if you're expecting such a
+prompt and you want to send along "yes").
+
+When checking these prompts, the incoming output data from the device will be
+tested whether it **ends with** one of these prompts. These should be as
+specific as possible, including trailing spaces.
+
+The default values are common continue prompts encountered throughout the
+lifetime of the Trigger project's development, and is by no means
+comprehensive. If you need to customize these prompts for your environment,
+utilize this setting.
+
+Default::
+
+    [
+        'continue?',
+        'proceed?',
+        '(y/n):',
+        '[y/n]:',
+        '[confirm]',
+        '[yes/no]: ',
+        'overwrite file [startup-config] ?[yes/press any key for no]....'
+    ]
 
 .. setting:: GORC_FILE
 

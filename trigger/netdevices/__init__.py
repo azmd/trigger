@@ -24,19 +24,20 @@ Example::
 
 __author__ = 'Jathan McCollum, Eileen Tschetter, Mark Thomas, Michael Shields'
 __maintainer__ = 'Jathan McCollum'
-__email__ = 'jathan.mccollum@teamaol.com'
+__email__ = 'jathan@gmail.com'
 __copyright__ = 'Copyright 2006-2013, AOL Inc.; 2013 Salesforce.com'
-__version__ = '2.2.2'
+__version__ = '2.3.2'
 
 # Imports
 import copy
 import itertools
 import os
+import re
 import sys
 import time
 from twisted.python import log
 from trigger.conf import settings
-from trigger.utils import network
+from trigger.utils import network, parse_node_port
 from trigger.utils.url import parse_url
 from trigger import changemgmt, exceptions, rancid
 from UserDict import DictMixin
@@ -182,11 +183,12 @@ class NetDevice(object):
 
         # Hostname
         self.nodeName = None
+        self.nodePort = None
 
         # Hardware Info
         self.deviceType = None
         self.make = None
-        self.manufacturer = None
+        self.manufacturer = settings.FALLBACK_MANUFACTURER
         self.vendor = None
         self.model = None
         self.serialNumber = None
@@ -196,6 +198,7 @@ class NetDevice(object):
         self.assetID = None
         self.budgetCode = None
         self.budgetName = None
+        self.enablePW = None
         self.owningTeam = None
         self.owner = None
         self.onCallName = None
@@ -212,6 +215,9 @@ class NetDevice(object):
         # If `data` has been passed, use it to update our attributes
         if data is not None:
             self._populate_data(data)
+
+        # Set node remote port based on "hostname:port" as nodeName
+        self._set_node_port()
 
         # Cleanup the attributes (strip whitespace, lowercase values, etc.)
         self._cleanup_attributes()
@@ -263,6 +269,10 @@ class NetDevice(object):
         if self.deviceType is not None:
             self.deviceType = self.deviceType.upper()
 
+        # Make sure the password is bytes not unicode
+        if self.enablePW is not None:
+            self.enablePW = str(self.enablePW)
+
         # Cleanup whitespace from owning team
         if self.owningTeam is not None:
             self.owningTeam = self.owningTeam.strip()
@@ -274,6 +284,26 @@ class NetDevice(object):
                 'down': 'NON-PRODUCTION',
             }
             self.adminStatus = STATUS_MAP.get(self.deviceStatus, STATUS_MAP['up'])
+
+    def _set_node_port(self):
+        """Set the freakin' TCP port"""
+        # If nodename is set, try to parse out a nodePort
+        if self.nodeName is not None:
+            nodeport_info = parse_node_port(self.nodeName)
+            nodeName, nodePort = nodeport_info
+
+            # If the nodeName differs, use it to replace the one we parsed
+            if nodeName != self.nodeName:
+                self.nodeName = nodeName
+
+            # If the port isn't set, set it
+            if nodePort is not None:
+                self.nodePort = nodePort
+                return None
+
+        # Make sure the port is an integer if it's not None
+        if self.nodePort is not None and isinstance(self.nodePort, basestring):
+            self.nodePort = int(self.nodePort)
 
     def _populate_deviceType(self):
         """Try to make a guess what the device type is"""
@@ -314,6 +344,13 @@ class NetDevice(object):
             else:
                 return ['skip-page-display']
 
+        def disable_paging_cisco():
+            """Cisco ASA commands differ from IOS"""
+            if self.is_cisco_asa():
+                return ['terminal pager 0']
+            else:
+                return default
+
         # Commands used to disable paging.
         default = ['terminal length 0']
         paging_map = {
@@ -321,7 +358,8 @@ class NetDevice(object):
             'arista': default,
             'aruba': ['no paging'], # v6.2.x this is not necessary
             'brocade': disable_paging_brocade(), # See comments above
-            'cisco': default,
+            'cisco': disable_paging_cisco(),
+            'citrix': ['set cli mode page off'],
             'dell': ['terminal datadump'],
             'f5': ['modify cli preference pager disabled'],
             'force10': default,
@@ -333,6 +371,7 @@ class NetDevice(object):
         }
 
         cmds = paging_map.get(self.vendor.name)
+
         if self.is_netscreen():
             cmds = paging_map['netscreen']
 
@@ -353,6 +392,8 @@ class NetDevice(object):
             return self._juniper_commit()
         elif self.vendor == 'paloalto':
             return ['commit']
+        elif self.vendor == 'pica8':
+            return ['commit']
         elif self.vendor == 'mrv':
             return ['save configuration flash']
         elif self.vendor == 'f5':
@@ -366,7 +407,7 @@ class NetDevice(object):
         """
         if self.is_brocade_vdx() or self.vendor == 'dell':
             return ['copy running-config startup-config', 'y']
-        elif self.make and 'nexus' in self.make.lower():
+        elif self.is_cisco_nexus():
             return ['copy running-config startup-config']
         else:
             return ['write memory']
@@ -484,10 +525,33 @@ class NetDevice(object):
         """Am I a NetScaler?"""
         return all([self.is_switch(), self.vendor=='citrix'])
 
+    def is_pica8(self):
+        """Am I a Pica8?"""
+        ## This is only really needed because pica8 
+        ## doesn't have a global command to disable paging
+        ## so we need to do some special magic.
+        return all([self.vendor=='pica8'])
+
     def is_netscreen(self):
         """Am I a NetScreen running ScreenOS?"""
-        return all([self.is_firewall(),
-                    self.vendor in ('juniper', 'netscreen')])
+        # Are we even a firewall?
+        if not self.is_firewall():
+            return False
+
+        # If vendor or make is netscreen, automatically True
+        make_netscreen = self.make is not None and self.make.lower() == 'netscreen'
+        if self.vendor == 'netscreen' or make_netscreen:
+            return True
+
+        # Final check: Are we made by Juniper and an SSG? This requires that
+        # make or model is populated and has the word 'ssg' in it. This still
+        # fails if it's an SSG running JunOS, but this is not an edge case we
+        # can easily support at this time.
+        is_ssg = (
+            (self.model is not None and 'ssg' in self.model.lower()) or
+            (self.make is not None and 'ssg' in self.make.lower())
+        )
+        return self.vendor == 'juniper' and is_ssg
 
     def is_ioslike(self):
         """
@@ -513,6 +577,47 @@ class NetDevice(object):
         if self.make is not None:
             self._is_brocade_vdx = 'vdx' in self.make.lower()
         return self._is_brocade_vdx
+
+    def is_cisco_asa(self):
+        """
+        Am I a Cisco ASA Firewall?
+
+        This is used to account for slight differences in the commands that
+        may be used between Cisco's ASA and IOS platforms. Cisco ASA is still
+        very IOS-like, but there are still several gotcha's between the
+        platforms.
+
+        Will return True if vendor is Cisco and platform is Firewall. This
+        is to allow operability if using .csv NetDevices and pretty safe to
+        assume considering ASA (was PIX) are Cisco's flagship(if not only)
+        Firewalls.
+        """
+        if hasattr(self, '_is_cisco_asa'):
+            return self._is_cisco_asa
+
+        if not (self.vendor == 'cisco' and self.is_firewall()):
+            self._is_cisco_asa = False
+            return False
+
+        if self.make is not None:
+            self._is_cisco_asa = 'asa' in self.make.lower()
+
+        self._is_cisco_asa = self.vendor == 'cisco' and self.is_firewall()
+
+        return self._is_cisco_asa
+
+    def is_cisco_nexus(self):
+        """
+        Am I a Cisco Nexus device?
+        """
+        words = (self.make, self.model)
+        patterns = ('n.k', 'nexus')  # Patterns to match
+        pairs = itertools.product(patterns, words)
+
+        for pat, word in pairs:
+            if word and re.search(pat, word.lower()):
+                return True
+        return False
 
     def _ssh_enabled(self, disabled_mapping):
         """Check whether vendor/type is enabled against the given mapping."""
@@ -724,8 +829,14 @@ class NetDevices(DictMixin):
         def __getitem__(self, key):
             return self._dict[key]
 
+        def __contains__(self, item):
+            return item in self._dict
+
         def keys(self):
             return self._dict.keys()
+
+        def values(self):
+            return self._dict.values()
 
         def find(self, key):
             """
@@ -737,18 +848,18 @@ class NetDevices(DictMixin):
             :param string key: Hostname prefix to find.
             :returns: NetDevice object
             """
-            if key in self._dict:
-                return self._dict[key]
+            if key in self:
+                return self[key]
 
-            matches = [x for x in self._dict.keys() if x.startswith(key+'.')]
+            matches = [x for x in self.keys() if x.startswith(key + '.')]
 
             if matches:
-                return self._dict[matches[0]]
+                return self[matches[0]]
             raise KeyError(key)
 
         def all(self):
             """Returns all NetDevice objects."""
-            return self._dict.values()
+            return self.values()
 
         def search(self, token, field='nodeName'):
             """
@@ -863,12 +974,13 @@ class NetDevices(DictMixin):
         """
         if with_acls is None:
             with_acls = settings.WITH_ACLS
-        if NetDevices._Singleton is None:
-            NetDevices._Singleton = NetDevices._actual(production_only=production_only,
-                                                       with_acls=with_acls)
+        classobj = self.__class__
+        if classobj._Singleton is None:
+            classobj._Singleton = classobj._actual(production_only=production_only,
+                                                   with_acls=with_acls)
 
     def __getattr__(self, attr):
-        return getattr(NetDevices._Singleton, attr)
+        return getattr(self.__class__._Singleton, attr)
 
     def __setattr__(self, attr, value):
-        return setattr(NetDevices._Singleton, attr, value)
+        return setattr(self.__class__._Singleton, attr, value)

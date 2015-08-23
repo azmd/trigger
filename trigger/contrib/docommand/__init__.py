@@ -12,7 +12,7 @@ __author__ = 'Jathan McCollum, Mike Biancianello'
 __maintainer__ = 'Jathan McCollum'
 __email__ = 'jathan@gmail.com'
 __copyright__ = 'Copyright 2012-2013, AOL Inc.; 2013 Salesforce.com'
-__version__ = '3.0'
+__version__ = '3.2'
 
 
 # Imports
@@ -41,10 +41,16 @@ class DoCommandBase(Commando):
     """
     description = 'Insert description here.'
 
-    def from_base(self, results, device):
+    def errback(self, failure, device):
+        failure = super(DoCommandBase, self).errback(failure, device)
+        print '%s - Error: %s' % (device, failure.value)
+        return failure
+
+    def from_base(self, results, device, commands=None):
         """Call store_results without calling map_results"""
         log.msg('Received %r from %s' % (results, device))
         self.store_results(device, results)
+
 
 # TODO: Right now if you are loading commands from files, this will ultimately
 # fail with a ReactorNotRestartable error because the core.main() function is
@@ -139,7 +145,7 @@ class CommandRunner(DoCommandBase):
     def __children_with_namespace(self, ns):
         return lambda elt, tag: elt.findall('./' + ns + tag)
 
-    def from_juniper(self, data, device):
+    def from_juniper(self, data, device, commands=None):
         devname = device.nodeName
         ns = '{http://xml.juniper.net/xnm/1.1/xnm}'
         if self.verbose:
@@ -160,6 +166,7 @@ class CommandRunner(DoCommandBase):
                 ET.dump(xml)
         self.data[devname] = outs
         return True
+
 
 class ConfigLoader(Commando):
     """
@@ -282,7 +289,7 @@ class ConfigLoader(Commando):
     def __children_with_namespace(self, ns):
         return lambda elt, tag: elt.findall('./' + ns + tag)
 
-    def from_juniper(self, data, device):
+    def from_juniper(self, data, device, commands=None):
         """Parse results from a Juniper device."""
         devname = device.nodeName
         if self.verbose:
@@ -355,4 +362,3 @@ def xml_print(xml, iterations=10):
             # Show elements in a tag1 -> tag2 -> tag3 -> field:value format
             #ret.append(tag+" -> "+t)
     return ret
-

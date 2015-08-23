@@ -59,34 +59,39 @@ vendors:
 
 + A10 Networks
 
-  + All AX-series application delivery controllers and server load-balancers
+  - All AX-series application delivery controllers and server load-balancers
 
 + Arista Networks
 
-  + All 7000-family switch platforms
+  - All 7000-family switch platforms
 
 + Aruba Networks
 
-  + All Mobility Controller platforms
+  - All Mobility Controller platforms
+
++ Avocent (Emerson)
+
+  - All Cyclades ACS 6000-series console terminal servers
 
 + Brocade Networks
 
-  + ADX application delivery switches
-  + MLX routers
-  + VDX switches
+  - ADX application delivery switches
+  - MLX routers
+  - VDX switches
 
 + Citrix Systems
 
-  + NetScaler application delivery controllers and server load-balancers
+  - NetScaler application delivery controllers and server load-balancers
 
 + Cisco Systems
 
-  + All router and switch platforms running IOS
-  + All switch platforms running NX-OS
+  - All router and switch platforms running IOS
+  - All firewalls running ASA software (NetACLInfo not implemented)
+  - All switch platforms running NX-OS
 
 + Dell
 
-  + PowerConnect switches
+  - PowerConnect switches
 
 + F5 Networks
 
@@ -94,20 +99,20 @@ vendors:
 
 + Force10
 
-  + All router and switch platforms running FTOS
+  - All router and switch platforms running FTOS
 
 + Foundry/Brocade
 
-  + All router and switch platforms (NetIron, ServerIron, et al.)
+  - All router and switch platforms (NetIron, ServerIron, et al.)
 
 + Juniper Networks
 
-  + All router and switch platforms running Junos
-  + NetScreen firewalls running ScreenOS (Junos not yet supported)
+  - All router and switch platforms running Junos
+  - NetScreen firewalls running ScreenOS (Junos not yet supported)
 
 + MRV Communications
 
-  - All LX-series console servers
+  - All LX-series console terminal servers
 
 It's worth noting that other vendors may actually work with the current
 libraries, but they have not been tested. The mapping of supported platforms is
@@ -162,7 +167,7 @@ Please note that all documentation is written with users of Python 2.6 or
 higher in mind. It's safe to assume that Trigger will not work properly on
 Python versions earlier than Python 2.6.
 
-For now, most of our documentation is automatically generated form the source
+For now, most of our documentation is automatically generated from the source
 code documentation, which is usually very detailed. As we move along, this will
 change, especially with regards to some of the more creative ways in which we
 use Trigger's major functionality.
@@ -303,7 +308,7 @@ OpenHatch
 ---------
 
 Find Trigger on Openhatch at 
-`http://openhatch.org/+projects/Trigger <http://openhatch.org/+projects/Trigger>`_!
+`http://openhatch.org/projects/Trigger <http://openhatch.org/projects/Trigger>`_!
 
 .. _license:
 

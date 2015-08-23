@@ -2,6 +2,225 @@
 Changelog
 =========
 
+.. _v1.5.3:
+
+1.5.3
+=====
+
+New Features
+------------
+
++ Remote execution on Avocent console servers is now officially supported.
+
+Enhancements
+------------
+
++ An identity test for `~trigger.netdevices.NetDevice` objects has been added
+  that can be used to check whether a devices is a Cisco Nexus. You may utilize
+  it by calling `.is_cisco_nexus()` on any `NetDevice` object.
++ Support for parsing interfaces on Cisco Nexus devices has been added.
++ A new global setting now defines what to do when a device object does not
+  have a manufacturer defined (See: :setting:`FALLBACK_MANUFACTURER`) which
+  defaults to the value ``UNKNOWN``.
+
+.. _v1.5.2:
+
+1.5.2
+=====
+
+New Features
+------------
+
++ `~trigger.netdevices.NetDevices` can now be properly subclassed and extended.
++ A disable paging command has been added for Citrix NetScaler devices.
++ String patterns used for detecting continue prompts is now globally
+  configurable. (See :setting:`CONTINUE_PROMPTS`)
+
+Bug Fixes
+---------
+
++ :bug:`210` Addressed an issue where the buffer storing results from a command
+  was not properly cleared when output continued to be sent after the prompt
+  was displayed.
++ `bin/run_cmds` will now no longer hide errors when in `--verbose` mode.
+
+.. _v1.5.1:
+
+1.5.1
+=====
+
+New Features
+------------
+
++ The SSH authentication order is now a configurable setting. Public key is now
+  the last method by default, but this is now easily configured in
+  ``settings.py`` using the new :setting:`SSH_AUTHENTICATION_ORDER` setting.
++ The ``command_interval`` argument may now be passed to
+  `~trigger.cmds.Commando` and its subclasses. This allows you to specify a
+  delay time in seconds to wait between sending commands to devices.
+
+Enhancements
+------------
+
++ The example script the Trigger XMLRPC service has been improved to check the
+  pid file and kill the existing ``twistd`` process by process id.
+
+.. _v.1.5:
+
+1.5
+===
+
+.. warning::
+   This release has introduced a change the ``Commando.parse()`` method that
+   WILL require a minor change to any subclasses of Commando in your
+   applications.
+
+   You will need to modify any custom ``from_{vendor}`` methods to take an
+   optional ``commands`` argument. It is recommended that you add
+   ``commands=None``.
+
+Bug Fixes
+---------
+
++ :bug:`168` Fixed a bug in `~trigger.cmds.Commando.parse()` where `None` was listed as
+  the command in results causing result data to be lost.
+
+.. _v1.4.9:
+
+1.4.9
+=====
+
+New Features
+------------
+
++ Support for Pica8 routers and switches has been added!
++ :feature:`135` Support for SSH public key authentication has been added!
++ An ehancement to `~trigger.cmds.Commando.select_next_device()` to support
+  skipping a `~trigger.netdevices.NetDevice` object for selection. If you
+  overload this method in a subclass and want to skip the device, just return
+  ``None``!
+
+.. _v1.4.8:
+
+1.4.8
+=====
+
+New Features
+------------
+
++ Cisco ASA firewall now supported as a NetDevice. To begin using, ensure
+  that ``FIREWALL`` is added in your settings.py as a supported cisco platform.o
+
+  For it to enable properly, either the netdevice attribute ``enablePW`` needs
+  to be set or the environment variable ``TRIGGER_ENABLEPW`` does. For now, I
+  typically accomplish this via::
+
+      >>> from trigger.conf import settings
+      >>> from trigger import tacacsrc
+      >>> settings.DEFAULT_REALM = 'MyRealm'
+      >>> os.environ['TRIGGER_ENABLEPW'] = \
+              tacacsrc.get_device_password(settings.DEFAULT_REALM).password
+      >>> # Then the rest of my program
+
+  ACL parsing for ASA is not implemented yet. NetACLInfo will generate the
+  proper command, but will currently just add a message warning about future
+  support
+
+
+.. _v1.4.7:
+
+1.4.7
+=====
+
+New Features
+------------
+
++ The .tacacsrc passphrase may now be stored in ``settings.py``.
+
+Bug Fixes
+---------
+
++ :bug:`144` Bugfix to detect missing or empty .tacacsrc keyfile.
+
+Bug Fixes
+---------
+
+.. _v1.4.6:
+
+1.4.6
+=====
+
+Bug Fixes
+---------
+
++ :bug:`198` Fix hanging SSH connections to Cisco equipment due to client
+  sending key exchange messages before remote device.
+
+.. _v1.4.5:
+
+1.4.5
+=====
+
+New Features
+------------
+
++ There is now a MongoDB loader for `~trigger.netdevices.NetDevices`.
++ :feature:`140` There is a new `~trigger.cmds.ReactorlessCommando` that allows
+  for running multiple `~trigger.cmds.Commando` instances in the same program
+  under the same reactor by preventing the instances from doing it themselves.
++ :feature:`182` ``bin/run_cmds`` will now log all activity to a logfile in ``/tmp``
++ :feature:`195` The `~trigger.acl` library has been refactored to be more
+  modular, breaking out vendor-specific grammar details into their own modules
+  (`~trigger.acl.ios`, `~trigger.acl.junos`).
+
+Documentation
+-------------
+
++ Improved the documentation for :doc:`usage/tacacsrc`.
++ The :doc:`installation` page now includes instructions for using
+  ``bounce.py`` to configure maintenance windows.
+
+Bug Fixes
+---------
+
++ Make sure Juniper SRX devices are not categorized as being NetScreen devices
++ Bugfix in `~trigger.netdevices.NetDevice.is_netscreen()` to account for when
+  ``.make`` is ``None``
++ Minor bugfix in ``start_xmlrpc.sh`` example script
+
+.. _v1.4.4:
+
+1.4.4
+=====
+
+Enhancements
+------------
+
++ Client connectings (such as those made by ``bin/load_acl``, for example)
+  will now raise an error when it is detected that an enable password is
+  required and one is not provided.
++ :feature:`181` Added SSH support for confirmation prompts
+
+  - Added ``'[confirm]'`` as one of those prompts
+
+Bug Fixes
+---------
+
++ :bug:`172` Added ability to specify remote port for NetDevice objects
+
+  - Add defaults in settings.py for SSH (SSH_PORT) and Telnet (SSH_TELNET)
+    ports
+  - Added documentation for SSH_PORT and TELNET_PORT in settings.py
+
++ :bug:`180` Fix prompt patterns to include optional space and hard
+  line-endings.
++ :bug:`184` Pin pytz<=2014.2 to fix unit tests for time being (no pun
+  intended).
++ Fix a minor bug causing ``bin/gong`` send the enable password when it
+  shouldn't.
++ Bugfix when passwords are passed in to make sure they are not unicode
++ ``bin/gong`` will now mark a device as enabled when auto-enable is detected.
+
 .. _v1.4.3:
 
 1.4.3
@@ -39,7 +258,7 @@ Bug Fixes
 ---------
 
 + Bugfix in `~trigger.tacacs.Tacacsrc` in which saving a password
-  longer than a certain lengthw could cause the encrypted password hash
+  longer than a certain length could cause the encrypted password hash
   to contain newlines and therefore become unreadable.
 + :bug:`163` Bugfix to copy startup commands from a device when creating
   a channel base, otherwise they will get consumed directly from the
@@ -78,10 +297,14 @@ Bug Fixes
 Warnings
 --------
 
-+ With this update, load_acl and acl no longer assume ACL and filter files begin with 'acl.'.  There are two options for updating your deployment to work with this code:
++ With this update, load_acl and acl no longer assume ACL and filter files
+  begin with 'acl.'.  There are two options for updating your deployment to
+  work with this code:
 
   1. Move files in settings.FIREWALL_DIR to files without the prepended 'acl.'.
-  2. Update autoacls.py and explicit ACL associations to include the prepended 'acl.'  prepend_acl_dot was included in tools/ to help update explicit ACL associations.
+  2. Update autoacls.py and explicit ACL associations to include the prepended
+     'acl.'  prepend_acl_dot was included in tools/ to help update explicit ACL
+     associations.
 
 + Please note that either change above may have an impact on any non-trigger code.
 
@@ -120,7 +343,7 @@ New Features
 
 + Support for new vendors and platforms!!
 
-  - F5 BIG-IP application delivery controllers and server load-balancers 
+  - F5 BIG-IP application delivery controllers and server load-balancers
   - MRV LX-series console servers
 
 + New tool ``bin/run_cmds`` to run commands from the CLI!
@@ -435,7 +658,7 @@ trigger.utils
   `~trigger.netdevices` to make it easier to populate
   `~trigger.netdevices.NetDevices` from arbitrary sources by implementing
   pluggable loaders.
-  
+
   - This module has been converted into a package.
   - All hard-coded metadata parsing functions and associated imports have been
     replaced with loader plugin classes. Filesystem loaders provided by default
@@ -475,7 +698,7 @@ trigger.utils
 
 + The following changes have been made within `~trigger.cmds`, which provides
   an extensible, developer-friendly interface to writing command exeuction
-  adapters: 
+  adapters:
 
   - Added a ``force_cli`` flag to `~trigger.cmds.Commando` constructor to force
     CLI execution on Juniper devices instead of Junoscript.
